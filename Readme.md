@@ -3,8 +3,8 @@
 
 ```bash
 # Clone your repository
-git clone <your-repo-url>
-cd nail_detection_flask
+git clone https://github.com/codella14/nailshere.git
+cd nailshere
 
 # Ensure your model file is in place
 ls model/best_10k.pt  # Should exist
@@ -30,7 +30,7 @@ docker-compose ps
 docker-compose logs web
 
 # Test the application
-curl http://localhost/
+curl http://localhost:5001
 ```
 
 ### uv commands
