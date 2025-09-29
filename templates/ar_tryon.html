@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Nail Try-On - NailDova</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .ar-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        .camera-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .controls-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            border-radius: 15px;
+            padding: 20px;
+            z-index: 10;
+            min-width: 300px;
+            max-height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: translateX(-100%);
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(193, 84, 193, 0.7) rgba(255, 255, 255, 0.1);
+        }
+
+        .controls-panel.left-position {
+            left: 20px;
+            right: auto;
+            transform: translateX(-100%);
+        }
+
+        .controls-panel.left-position.show {
+            transform: translateX(0);
+        }
+
+        .controls-panel.right-position {
+            right: 20px;
+            left: auto;
+            transform: translateX(100%);
+        }
+
+        .controls-panel.right-position.show {
+            transform: translateX(0);
+        }
+        
+        .controls-panel.show {
+            transform: translateX(0);
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-title-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .settings-header h5 {
+            margin: 0;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .position-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .position-chip {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .position-chip:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .position-chip.active {
+            background: linear-gradient(135deg, #C154C1, #e83e8c);
+            border-color: #C154C1;
+            box-shadow: 0 0 10px rgba(193, 84, 193, 0.3);
+        }
+
+        .close-settings-btn {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            color: #fff;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .close-settings-btn:hover {
+            background: rgba(255, 0, 0, 0.4);
+            border-color: rgba(255, 0, 0, 0.6);
+            transform: scale(1.1);
+        }
+        
+        /* Custom scrollbar for controls panel */
+        .controls-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .controls-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin: 5px;
+        }
+        
+        .controls-panel::-webkit-scrollbar-thumb {
+            background: rgba(193, 84, 193, 0.7);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .controls-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(193, 84, 193, 0.9);
+        }
+        
+
+        .finger-selection {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .finger-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .finger-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .finger-btn.active {
+            background: linear-gradient(135deg, #C154C1, #e83e8c);
+            border-color: #C154C1;
+            box-shadow: 0 0 20px rgba(193, 84, 193, 0.5);
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #C154C1, #e83e8c);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(193, 84, 193, 0.5);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #C154C1, #e83e8c);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(193, 84, 193, 0.5);
+        }
+
+        .toggle-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .toggle-btn.active {
+            background: linear-gradient(135deg, #C154C1, #e83e8c);
+            border-color: #C154C1;
+        }
+
+        .status-panel {
+            /* position: fixed;
+            top: 20px;
+            right: 20px; */
+            /* background: rgba(0, 0, 0, 0.6); */
+            /* backdrop-filter: blur(10px);
+            border-radius: 10px; */
+            padding: 10px;
+            z-index: 10;
+            min-width: 150px;
+            /* border: 1px solid rgba(255, 255, 255, 0.1); */
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-value {
+            color: #C154C1;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 0, 0, 0.8);
+            color: #fff;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 20;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 0, 0, 1);
+            transform: scale(1.1);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: #fff;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #C154C1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.9);
+            color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            text-align: center;
+            max-width: 400px;
+        }
+
+        .hand-detection-indicator {
+            position: fixed;
+            bottom: 80px;
+            right: 4px;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            padding: 8px 15px;
+            border-radius: 20px;
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .detection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.detected {
+            background: #44ff44;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .capture-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 42%;
+            background: linear-gradient(135deg, #C154C1, #e83e8c);
+            color: #fff;
+            border: none;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 24px;
+            box-shadow: 0 4px 20px rgba(193, 84, 193, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .capture-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px rgba(193, 84, 193, 0.6);
+        }
+
+        .capture-btn:active {
+            transform: scale(0.95);
+        }
+
+        .camera-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .camera-controls1 {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+        .control-btn {
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn:hover {
+            background: rgba(0, 0, 0, 0.8);
+            transform: scale(1.1);
+        }
+
+        .settings-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 15;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .settings-btn:hover {
+            background: rgba(0, 0, 0, 0.8);
+            transform: scale(1.1);
+        }
+
+        .settings-btn.pop-out {
+            opacity: 0;
+            transform: scale(0.3);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .settings-btn.pop-in {
+            opacity: 1;
+            transform: scale(1);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            animation: popInBounce 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes popInBounce {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 0.8;
+                transform: scale(1.2);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .controls-panel {
+                top: 10px;
+                left: 10px;
+                width: 70vw;
+                height: 40vh;
+                min-width: 250px;
+                max-width: 300px;
+                min-height: 200px;
+                max-height: 30vh;
+                padding: 15px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                box-sizing: border-box;
+            }
+            
+            .status-panel {
+                top: 10px;
+                right: 10px;
+                min-width: 150px;
+                padding: 10px;
+            }
+            
+            .finger-selection {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .finger-btn {
+                padding: 8px;
+                font-size: 11px;
+            }
+            
+            .control-group {
+                margin-bottom: 12px;
+            }
+            
+            .control-group label {
+                font-size: 12px;
+            }
+
+            .settings-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .settings-title-section {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .position-controls {
+                width: 100%;
+                justify-content: center;
+                gap: 15px;
+            }
+
+            .position-chip {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+
+            .close-settings-btn {
+                width: 35px;
+                height: 35px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ar-container">
+        <video id="cameraVideo" class="camera-view" autoplay muted playsinline></video>
+        <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h3>Initializing AR Try-On...</h3>
+            <p>Loading hand tracking and camera</p>
+        </div>
+    </div>
+
+    <!-- Error Message -->
+    <div class="error-message" id="errorMessage" style="display: none;">
+        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+        <h4>Camera Access Required</h4>
+        <p>Please allow camera access to use the AR try-on feature.</p>
+        <button class="btn btn-primary mt-3" onclick="location.reload()">Retry</button>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="controls-panel right-position" id="controlsPanel">
+        <div class="settings-header">
+            <div class="settings-title-section">
+                <button class="close-settings-btn" id="closeSettingsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+                <h5><i class="fas fa-cog me-2"></i>Settings</h5>
+            </div>
+            <div class="position-controls">
+                <div class="position-chip" id="leftChip" data-position="left">Left</div>
+                <div class="position-chip active" id="rightChip" data-position="right">Right</div>
+            </div>
+        </div>
+        <div class="finger-selection">
+            <button class="finger-btn active" data-finger="all">
+                <i class="fas fa-hand-paper"></i><br>All
+            </button>
+            <button class="finger-btn active" data-finger="thumb">
+                <i class="fas fa-thumbs-up"></i><br>Thumb
+            </button>
+            <button class="finger-btn active" data-finger="index">
+                <i class="fas fa-hand-point-up"></i><br>Index
+            </button>
+            <button class="finger-btn active" data-finger="middle">
+                <i class="fas fa-hand-middle-finger"></i><br>Middle
+            </button>
+            <button class="finger-btn active" data-finger="ring">
+                <i class="fas fa-ring"></i><br>Ring
+            </button>
+            <button class="finger-btn active" data-finger="pinky">
+                <i class="fas fa-hand-paper"></i><br>Pinky
+            </button>
+        </div>
+
+        <div class="control-group">
+            <label>Opacity: <span id="opacityValue">90%</span></label>
+            <input type="range" class="slider" id="opacitySlider" min="0" max="100" value="90">
+        </div>
+
+        <div class="control-group">
+            <label>Custom Scale: <span id="customScaleValue">100%</span></label>
+            <input type="range" class="slider" id="customScaleSlider" min="10" max="300" value="100">
+        </div>
+
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="autoScaleCheckbox"> Auto Scale
+            </label>
+        </div>
+
+        <div class="control-group">
+            <label>Rotation Offset: <span id="rotationOffsetValue">0°</span></label>
+            <input type="range" class="slider" id="rotationOffsetSlider" min="0" max="360" value="0">
+        </div>
+
+        <div class="control-group">
+            <label>Nail Position: <span id="nailPositionValue">110%</span></label>
+            <input type="range" class="slider" id="nailPositionSlider" min="50" max="140" value="110">
+        </div>
+
+        <div class="mt-3">
+            <button class="toggle-btn" id="landmarksToggle">
+                <i class="fas fa-eye"></i> Landmarks
+            </button>
+            <button class="toggle-btn" id="numbersToggle">
+                <i class="fas fa-sort-numeric-up"></i> Numbers
+            </button>
+            <button class="toggle-btn" id="debugToggle">
+                <i class="fas fa-bug"></i> Debug
+            </button>
+        </div>
+                <!-- Status Panel inside Finger Selection -->
+        <div class="status-panel" style="display: none; margin-top: 15px;">
+            <h6><i class="fas fa-info-circle me-2"></i>Status</h6>
+            <div class="status-item">
+                <span>Hand Detected:</span>
+                <span class="status-value" id="handStatus">No</span>
+            </div>
+            <div class="status-item">
+                <span>Confidence:</span>
+                <span class="status-value" id="confidenceValue">0%</span>
+            </div>
+            <div class="status-item">
+                <span>Distance:</span>
+                <span class="status-value" id="distanceValue">1.0m</span>
+            </div>
+            <div class="status-item">
+                <span>FPS:</span>
+                <span class="status-value" id="fpsValue">0</span>
+            </div>
+            <div class="status-item">
+                <span>Hands Count:</span>
+                <span class="status-value" id="skinPixelsValue">0</span>
+            </div>
+            <div class="status-item">
+                <span>Landmarks:</span>
+                <span class="status-value" id="handSizeValue">0</span>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- Settings Button -->
+    <button class="settings-btn" id="settingsBtn" onclick="toggleSettings()">
+        <i class="fas fa-cog"></i>
+    </button>
+
+    <!-- Camera Controls -->
+    <div class="camera-controls">
+        <button class="control-btn" onclick="closeAR()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+        <!-- Camera Controls -->
+    <div class="camera-controls1">
+        <button class="control-btn" id="flipCameraBtn" onclick="flipCamera()">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </div>
+
+    <!-- Capture Button -->
+    <button class="capture-btn" onclick="capturePhoto()">
+        <i class="fas fa-camera"></i>
+    </button>
+
+    <!-- Hand Detection Indicator -->
+    <div class="hand-detection-indicator" style="opacity: 0.3;">
+         <div class="detection-status">
+            <div class="status-dot" id="detectionDot"></div>
+    </div>
+
+    <!-- MediaPipe CDN scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/config-loader.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/mediapipe-hand-tracking.js') }}"></script>
+    <script>
+        class ARTryOnApp {
+            constructor() {
+                this.video = null;
+                this.canvas = null;
+                this.handTracker = null;
+                this.cameraStream = null;
+                this.isInitialized = false;
+                this.segmentedImageUrl = null;
+                this.currentCameraMode = 'user'; // 'user' for front, 'environment' for back
+                this.settingsVisible = false;
+                this.buttonPosition = 'right'; // Default to right position
+                
+                this.init();
+            }
+
+            async init() {
+                try {
+                    // Get segmented image URL from URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    this.segmentedImageUrl = urlParams.get('image') || '/static/segmentations/default.png';
+                    
+                    // Initialize camera
+                    await this.initializeCamera();
+                    
+                    // Initialize hand tracker
+                    await this.initializeHandTracker();
+                    
+                    // Setup UI controls
+                    this.setupUIControls();
+                    
+                    // Load saved button position
+                    this.loadButtonPosition();
+                    
+                    // Ensure button starts visible
+                    const settingsBtn = document.getElementById('settingsBtn');
+                    settingsBtn.classList.remove('pop-out', 'pop-in');
+                    
+                    // Hide loading overlay
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    
+                    this.isInitialized = true;
+                    console.log('AR Try-On initialized successfully');
+                    
+                } catch (error) {
+                    console.error('Failed to initialize AR Try-On:', error);
+                    this.showError('Failed to initialize AR Try-On. Please try again.');
+                }
+            }
+
+            async initializeCamera() {
+                try {
+                    this.video = document.getElementById('cameraVideo');
+                    
+                    // Request camera access with more robust constraints
+                    this.cameraStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280, min: 320 },
+                            height: { ideal: 720, min: 240 },
+                            facingMode: this.currentCameraMode,
+                            frameRate: { ideal: 30, max: 60 }
+                        }
+                    });
+                    
+                    this.video.srcObject = this.cameraStream;
+                    
+                    // Wait for video to be ready with timeout
+                    await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => {
+                            reject(new Error('Video metadata loading timeout'));
+                        }, 10000);
+                        
+                        this.video.onloadedmetadata = () => {
+                            clearTimeout(timeout);
+                            resolve();
+                        };
+                        
+                        this.video.onerror = (error) => {
+                            clearTimeout(timeout);
+                            reject(error);
+                        };
+                    });
+                    
+                    // Additional validation after metadata loads
+                    await this.validateVideoDimensions();
+                    
+                    console.log(`Camera initialized successfully - Video dimensions: ${this.video.videoWidth}x${this.video.videoHeight}`);
+                    
+                } catch (error) {
+                    console.error('Camera initialization failed:', error);
+                    throw new Error('Camera access denied or not available');
+                }
+            }
+            
+            async validateVideoDimensions() {
+                // Wait for video dimensions to be available
+                let attempts = 0;
+                const maxAttempts = 50; // 5 seconds max wait
+                
+                while (attempts < maxAttempts) {
+                    if (this.video.videoWidth > 0 && this.video.videoHeight > 0) {
+                        console.log(`Video dimensions validated: ${this.video.videoWidth}x${this.video.videoHeight}`);
+                        return;
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                throw new Error(`Video dimensions not available after ${maxAttempts} attempts`);
+            }
+
+            async initializeHandTracker() {
+                try {
+                    this.canvas = document.getElementById('overlayCanvas');
+                    
+                    // Debug: Check what's available
+                    console.log('MediaPipeHandTracker available:', !!window.MediaPipeHandTracker);
+                    console.log('Hands available:', typeof Hands !== 'undefined');
+                    console.log('SimpleHandTracker available:', !!window.SimpleHandTracker);
+                    
+                    // Try MediaPipe first (most accurate)
+                    if (window.MediaPipeHandTracker && typeof Hands !== 'undefined') {
+                        console.log('Initializing MediaPipe hand tracker...');
+                        this.handTracker = new MediaPipeHandTracker();
+                        
+                        // Add error handling for MediaPipe initialization
+                        try {
+                            await this.handTracker.init(this.video, this.canvas, this.segmentedImageUrl);
+                            console.log('MediaPipe hand tracker initialized successfully');
+                        } catch (mpError) {
+                            console.warn('MediaPipe initialization failed, trying fallback:', mpError);
+                            await this.initializeFallbackTracker();
+                        }
+                    } else {
+                        console.warn('MediaPipe not available, trying to load...');
+                        // Try to wait a bit more for MediaPipe to load
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        
+                        if (window.MediaPipeHandTracker && typeof Hands !== 'undefined') {
+                            console.log('MediaPipe loaded after delay, initializing...');
+                            this.handTracker = new MediaPipeHandTracker();
+                            await this.handTracker.init(this.video, this.canvas, this.segmentedImageUrl);
+                            console.log('MediaPipe hand tracker initialized successfully');
+                        } else if (window.SimpleHandTracker) {
+                            // Fallback to simple hand tracker
+                            this.handTracker = new SimpleHandTracker();
+                            await this.handTracker.init(this.video, this.canvas, this.segmentedImageUrl);
+                            console.log('Simple hand tracker initialized successfully');
+                        } else if (window.AdvancedHandTracker) {
+                            try {
+                                this.handTracker = new AdvancedHandTracker();
+                                await this.handTracker.init(this.video, this.canvas, this.segmentedImageUrl);
+                                console.log('Advanced hand tracker initialized successfully');
+                            } catch (error) {
+                                console.warn('Advanced hand tracker failed, falling back to basic tracking:', error);
+                                this.handTracker = new FallbackHandTracker();
+                                await this.handTracker.init(this.video, this.canvas, this.segmentedImageUrl);
+                                console.log('Fallback hand tracker initialized successfully');
+                            }
+                        } else {
+                            // Use fallback tracker
+                            this.handTracker = new FallbackHandTracker();
+                            await this.handTracker.init(this.video, this.canvas, this.segmentedImageUrl);
+                            console.log('Fallback hand tracker initialized successfully');
+                        }
+                    }
+                    
+                    // Start tracking
+                    this.handTracker.start();
+                    
+                    // Start status updates
+                    this.startStatusUpdates();
+                    
+                } catch (error) {
+                    console.error('Hand tracker initialization failed:', error);
+                    // Try fallback as last resort
+                    try {
+                        await this.initializeFallbackTracker();
+                    } catch (fallbackError) {
+                        console.error('Fallback tracker also failed:', fallbackError);
+                        throw new Error('Hand tracking initialization failed');
+                    }
+                }
+            }
+            
+            async initializeFallbackTracker() {
+                console.log('Initializing fallback hand tracker...');
+                
+                if (window.SimpleHandTracker) {
+                    this.handTracker = new SimpleHandTracker();
+                    await this.handTracker.init(this.video, this.canvas, this.segmentedImageUrl);
+                    console.log('Fallback hand tracker initialized successfully');
+                } else {
+                    throw new Error('No hand tracking method available');
+                }
+            }
+
+            setupUIControls() {
+                // Position control chips
+                document.getElementById('leftChip').addEventListener('click', () => {
+                    this.setButtonPosition('left');
+                });
+
+                document.getElementById('rightChip').addEventListener('click', () => {
+                    this.setButtonPosition('right');
+                });
+
+                // Close settings button
+                document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+                    this.toggleSettings();
+                });
+
+                // Close settings when clicking outside
+                document.addEventListener('click', (e) => {
+                    const controlsPanel = document.getElementById('controlsPanel');
+                    const settingsBtn = document.getElementById('settingsBtn');
+                    
+                    if (this.settingsVisible && 
+                        !controlsPanel.contains(e.target) && 
+                        !settingsBtn.contains(e.target)) {
+                        this.toggleSettings();
+                    }
+                });
+
+                // Finger selection buttons
+                document.querySelectorAll('.finger-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const finger = e.currentTarget.dataset.finger;
+                        console.log(`Finger button clicked: ${finger}`);
+                        this.toggleFingerSelection(finger);
+                    });
+                });
+
+                // Opacity slider
+                const opacitySlider = document.getElementById('opacitySlider');
+                opacitySlider.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    document.getElementById('opacityValue').textContent = value + '%';
+                    this.handTracker.updateSettings({ opacity: value / 100 });
+                });
+
+                // Custom scale slider
+                const customScaleSlider = document.getElementById('customScaleSlider');
+                customScaleSlider.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    document.getElementById('customScaleValue').textContent = value + '%';
+                    this.handTracker.updateSettings({ customScale: value / 100 });
+                });
+
+                // Auto scale checkbox
+                const autoScaleCheckbox = document.getElementById('autoScaleCheckbox');
+                autoScaleCheckbox.addEventListener('change', (e) => {
+                    this.handTracker.updateSettings({ autoScale: e.target.checked });
+                });
+
+                // Rotation offset slider
+                const rotationOffsetSlider = document.getElementById('rotationOffsetSlider');
+                rotationOffsetSlider.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    document.getElementById('rotationOffsetValue').textContent = value + '°';
+                    this.handTracker.updateSettings({ rotationOffset: parseFloat(value) * Math.PI / 180 });
+                });
+
+                // Nail position slider
+                const nailPositionSlider = document.getElementById('nailPositionSlider');
+                nailPositionSlider.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    document.getElementById('nailPositionValue').textContent = value + '%';
+                    this.handTracker.updateSettings({ nailPlacementRatio: value / 100 });
+                });
+
+                // Toggle buttons
+                document.getElementById('landmarksToggle').addEventListener('click', (e) => {
+                    e.target.classList.toggle('active');
+                    this.handTracker.updateSettings({ 
+                        showHandLandmarks: e.target.classList.contains('active') 
+                    });
+                });
+
+                document.getElementById('numbersToggle').addEventListener('click', (e) => {
+                    e.target.classList.toggle('active');
+                    this.handTracker.updateSettings({ 
+                        showFingerNumbers: e.target.classList.contains('active') 
+                    });
+                });
+
+                document.getElementById('debugToggle').addEventListener('click', (e) => {
+                    e.target.classList.toggle('active');
+                    this.handTracker.updateSettings({ 
+                        showDebugInfo: e.target.classList.contains('active') 
+                    });
+                });
+            }
+
+            toggleFingerSelection(finger) {
+                console.log(`toggleFingerSelection called: ${finger}`);
+                const btn = document.querySelector(`[data-finger="${finger}"]`);
+                const isActive = btn.classList.contains('active');
+                console.log(`Button found:`, btn, `isActive: ${isActive}`);
+                
+                if (finger === 'all') {
+                    // When 'all' is clicked, toggle all fingers
+                    const newState = !isActive;
+                    console.log(`Toggling all fingers to: ${newState}`);
+                    
+                    // Update all button states
+                    document.querySelectorAll('.finger-btn').forEach(b => {
+                        b.classList.toggle('active', newState);
+                    });
+                    
+                    // Update backend for all fingers
+                    this.handTracker.updateFingerSelection('all', newState);
+                    this.handTracker.updateFingerSelection('thumb', newState);
+                    this.handTracker.updateFingerSelection('index', newState);
+                    this.handTracker.updateFingerSelection('middle', newState);
+                    this.handTracker.updateFingerSelection('ring', newState);
+                    this.handTracker.updateFingerSelection('pinky', newState);
+                } else {
+                    // Toggle individual finger
+                    btn.classList.toggle('active');
+                    const fingerState = btn.classList.contains('active');
+                    console.log(`Toggled ${finger} to: ${fingerState}`);
+                    
+                    // Update backend for this specific finger
+                    this.handTracker.updateFingerSelection(finger, fingerState);
+                    
+                    // Update "all" button state based on individual finger states
+                    this.updateAllButtonState();
+                }
+            }
+            
+            updateAllButtonState() {
+                const allBtn = document.querySelector('[data-finger="all"]');
+                const individualFingers = Array.from(document.querySelectorAll('.finger-btn'))
+                    .filter(b => b.dataset.finger !== 'all');
+                
+                const activeFingers = individualFingers.filter(b => b.classList.contains('active'));
+                const allFingersSelected = activeFingers.length === individualFingers.length;
+                const noFingersSelected = activeFingers.length === 0;
+                
+                console.log(`updateAllButtonState: activeFingers=${activeFingers.length}, total=${individualFingers.length}, allSelected=${allFingersSelected}`);
+                
+                // Update "all" button state - ONLY update the 'all' selection, don't touch individual fingers
+                if (allFingersSelected) {
+                    allBtn.classList.add('active');
+                    // Only update the 'all' flag, don't touch individual fingers
+                    this.handTracker.fingerSelection.all = true;
+                    console.log('Set "all" button to active');
+                } else {
+                    allBtn.classList.remove('active');
+                    // Only update the 'all' flag, don't touch individual fingers
+                    this.handTracker.fingerSelection.all = false;
+                    console.log('Set "all" button to inactive');
+                }
+            }
+
+            startStatusUpdates() {
+                setInterval(() => {
+                    if (this.handTracker) {
+                        const handData = this.handTracker.getHandData();
+                        
+                        // Update status panel
+                        document.getElementById('handStatus').textContent = handData.isDetected ? 'Yes' : 'No';
+                        document.getElementById('confidenceValue').textContent = Math.round(handData.confidence * 100) + '%';
+                        document.getElementById('distanceValue').textContent = handData.distance.toFixed(1) + 'm';
+                        document.getElementById('fpsValue').textContent = handData.fps;
+                        
+                        // Update debug info if available
+                        if (handData.skinPixels !== undefined) {
+                            document.getElementById('skinPixelsValue').textContent = handData.skinPixels;
+                        }
+                        if (handData.handSize !== undefined) {
+                            document.getElementById('handSizeValue').textContent = Math.round(handData.handSize);
+                        }
+                        if (handData.handCount !== undefined) {
+                            document.getElementById('skinPixelsValue').textContent = handData.handCount;
+                        }
+                        if (handData.landmarks !== undefined) {
+                            document.getElementById('handSizeValue').textContent = handData.landmarks;
+                        }
+                        
+                        // Update detection indicator
+                        const detectionDot = document.getElementById('detectionDot');
+                        
+                        if (handData.isDetected) {
+                            detectionDot.classList.add('detected');
+                        } else {
+                            detectionDot.classList.remove('detected');
+                        }
+                    }
+                }, 100);
+            }
+
+            showError(message) {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                document.getElementById('errorMessage').style.display = 'block';
+                document.getElementById('errorMessage').querySelector('p').textContent = message;
+            }
+
+            capturePhoto() {
+                if (!this.isInitialized) return;
+                
+                // Create a temporary canvas to capture the current frame
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                tempCanvas.width = this.video.videoWidth;
+                tempCanvas.height = this.video.videoHeight;
+                
+                // Draw video frame
+                tempCtx.drawImage(this.video, 0, 0);
+                
+                // Draw overlay
+                tempCtx.drawImage(this.canvas, 0, 0);
+                
+                // Convert to blob and download
+                tempCanvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'nail-ar-capture.png';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+            }
+
+            async flipCamera() {
+                try {
+                    // Stop current stream
+                    if (this.cameraStream) {
+                        this.cameraStream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    // Switch camera mode
+                    this.currentCameraMode = this.currentCameraMode === 'user' ? 'environment' : 'user';
+                    
+                    // Reinitialize camera
+                    await this.initializeCamera();
+                    
+                    console.log('Camera flipped to:', this.currentCameraMode);
+                } catch (error) {
+                    console.error('Failed to flip camera:', error);
+                }
+            }
+
+
+            loadButtonPosition() {
+                const savedPosition = localStorage.getItem('settingsButtonPosition');
+                if (savedPosition) {
+                    this.setButtonPosition(savedPosition);
+                }
+            }
+
+            setButtonPosition(position) {
+                this.buttonPosition = position;
+                const settingsBtn = document.getElementById('settingsBtn');
+                const controlsPanel = document.getElementById('controlsPanel');
+                
+                // Update button position
+                if (position === 'left') {
+                    settingsBtn.style.left = '20px';
+                    settingsBtn.style.right = 'auto';
+                } else {
+                    settingsBtn.style.right = '20px';
+                    settingsBtn.style.left = 'auto';
+                }
+                
+                // Update settings card position
+                controlsPanel.classList.remove('left-position', 'right-position');
+                controlsPanel.classList.add(`${position}-position`);
+                
+                // Update chip states
+                document.getElementById('leftChip').classList.toggle('active', position === 'left');
+                document.getElementById('rightChip').classList.toggle('active', position === 'right');
+                
+                // Save position to localStorage
+                localStorage.setItem('settingsButtonPosition', position);
+                
+                console.log(`Settings button and card moved to ${position} position`);
+            }
+
+            toggleSettings() {
+                this.settingsVisible = !this.settingsVisible;
+                const controlsPanel = document.querySelector('.controls-panel');
+                const statusPanel = document.querySelector('.status-panel');
+                const settingsBtn = document.getElementById('settingsBtn');
+                
+                if (this.settingsVisible) {
+                    // Hide settings button with pop-out animation
+                    settingsBtn.classList.add('pop-out');
+                    settingsBtn.classList.remove('pop-in');
+                    
+                    // Show settings card
+                    controlsPanel.classList.add('show');
+                    statusPanel.style.display = 'block';
+                } else {
+                    // Hide settings card
+                    controlsPanel.classList.remove('show');
+                    statusPanel.style.display = 'none';
+                    
+                    // Show settings button with pop-in animation
+                    setTimeout(() => {
+                        settingsBtn.classList.remove('pop-out');
+                        settingsBtn.classList.add('pop-in');
+                        
+                        // Clean up animation class after animation completes
+                        setTimeout(() => {
+                            settingsBtn.classList.remove('pop-in');
+                        }, 400);
+                    }, 100); // Small delay to ensure smooth transition
+                }
+            }
+
+            cleanup() {
+                if (this.handTracker) {
+                    this.handTracker.stop();
+                }
+                
+                if (this.cameraStream) {
+                    this.cameraStream.getTracks().forEach(track => track.stop());
+                }
+            }
+        }
+
+        // Global functions
+        function closeAR() {
+            if (window.arApp) {
+                window.arApp.cleanup();
+            }
+            window.close();
+        }
+
+        function capturePhoto() {
+            if (window.arApp) {
+                window.arApp.capturePhoto();
+            }
+        }
+
+        function flipCamera() {
+            if (window.arApp) {
+                window.arApp.flipCamera();
+            }
+        }
+
+        function toggleSettings() {
+            if (window.arApp) {
+                window.arApp.toggleSettings();
+            }
+        }
+
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Wait a bit for MediaPipe scripts to load
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            window.arApp = new ARTryOnApp();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (window.arApp) {
+                window.arApp.cleanup();
+            }
+        });
+    </script>
+</body>
+</html>

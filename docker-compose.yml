@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: nail-detection-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./static/uploads:/app/static/uploads
+      - ./static/segmentations:/app/static/segmentations
+      - ./static/extracted:/app/static/extracted
+      - ./static/results:/app/static/results
+      - ./logs:/app/logs
+      - ./user_models:/app/user_models
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - MODEL_PATH=model/best_10k.pt
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

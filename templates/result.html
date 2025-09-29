@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nail Detection Results - NailDova</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .result-image {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+        .result-image:hover {
+            transform: scale(1.02);
+        }
+        .action-buttons {
+            margin: 20px 0;
+        }
+        .action-buttons .btn {
+            margin: 5px;
+            border-radius: 8px;
+        }
+        .success-icon {
+            color: #28a745;
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #C154C1, #e83e8c);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            font-weight: 600;
+        }
+        .download-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .feature-item i {
+            color: #C154C1;
+            margin-right: 10px;
+            width: 20px;
+        }
+        .status-badge {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        /* Try-On Modal Styles */
+        .camera-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .try-on-controls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            height: fit-content;
+        }
+
+        .try-on-controls h6 {
+            color: #C154C1;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .form-range {
+            margin-bottom: 10px;
+        }
+
+        #rotationValue {
+            min-width: 50px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        .rotation-preset-btn {
+            font-size: 0.8em;
+            padding: 4px 8px;
+            min-width: 50px;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .modal-lg {
+            max-width: 900px;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: none;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #218838, #1ea085);
+        }
+
+        #tryOnBtn {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        #tryOnBtn:hover {
+            background: linear-gradient(135deg, #218838, #1ea085);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        #tryOnBtn:active {
+            transform: translateY(0);
+        }
+
+
+        .camera-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            z-index: 20;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="text-center mb-4">
+            <div class="success-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h1 style="color: #C154C1;">Nail Detection Completed!</h1>
+            <div class="status-badge">
+                <i class="fas fa-magic"></i> Processing Successful
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-10 offset-md-1">
+                {% if results %}
+                    <!-- Segmented Nail Image -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-cut"></i> Segmented Nail</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="text-muted">Your nail has been perfectly segmented with smooth edges</p>
+                            <img src="{{ results.segmented_image }}" class="result-image" alt="Segmented nail">
+                            
+                            <div class="action-buttons">
+                                <a href="{{ results.segmented_image }}" download class="btn btn-primary">
+                                    <i class="fas fa-download"></i> Download Segmented Image
+                                </a>
+                                <button class="btn btn-success" id="tryOnBtn" onclick="startTryOn()">
+                                    <i class="fas fa-camera"></i> Try On Live
+                                </button>
+                                <a href="/ar_tryon.html?image={{ results.segmented_image }}" class="btn btn-warning" target="_blank">
+                                    <i class="fas fa-magic"></i> AR Try-On
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detection Image -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-search"></i> Detection Results</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="text-muted">Original image with detected nail boundaries</p>
+                            <img src="{{ results.detected_image }}" class="result-image" alt="Detection results">
+                            
+                            <div class="action-buttons">
+                                <a href="{{ results.detected_image }}" download class="btn btn-outline-primary">
+                                    <i class="fas fa-download"></i> Download Detection Image
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Complete Package Download -->
+                    <div class="download-section text-center">
+                        <h5><i class="fas fa-gift"></i> Complete Package</h5>
+                        <p class="text-muted">Download everything: segmented nail, PBR texture maps, and 3D models</p>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="feature-item">
+                                    <i class="fas fa-image"></i>
+                                    <span>Segmented Nail Image</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="feature-item">
+                                    <i class="fas fa-palette"></i>
+                                    <span>7 PBR Texture Maps</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="feature-item">
+                                    <i class="fas fa-cube"></i>
+                                    <span>3D Models (OBJ & STL)</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-center gap-3 flex-wrap">
+                            <a href="{{ results.zip_file }}" class="btn btn-success btn-lg">
+                                <i class="fas fa-download"></i> Download Complete Package
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Additional Options -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-tools"></i> What's Next?</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-4 mb-3">
+                                    <a href="/3d_converter.html" class="btn btn-outline-success btn-block">
+                                        <i class="fas fa-cube"></i><br>
+                                        <small>Convert Another Image to 3D</small>
+                                    </a>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <a href="/3d_viewer.html" class="btn btn-outline-info btn-block">
+                                        <i class="fas fa-eye"></i><br>
+                                        <small>View 3D Models</small>
+                                    </a>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <a href="/" class="btn btn-outline-primary btn-block">
+                                        <i class="fas fa-plus"></i><br>
+                                        <small>Process Another Image</small>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+
+
+                {% else %}
+                    <div class="alert alert-warning text-center">
+                        <h5><i class="fas fa-exclamation-triangle"></i> No Results Found</h5>
+                        <p>The processing results could not be loaded. Please try processing your image again.</p>
+                        <a href="/" class="btn btn-primary">
+                            <i class="fas fa-arrow-left"></i> Go Back
+                        </a>
+                    </div>
+                {% endif %}
+
+                <div class="text-center mt-4">
+                    <p class="text-muted">
+                        <i class="fas fa-heart" style="color: #C154C1;"></i> 
+                        
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Try-On Modal -->
+    <div class="modal fade" id="tryOnModal" tabindex="-1" aria-labelledby="tryOnModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tryOnModalLabel">
+                        <i class="fas fa-camera"></i> Live Nail Try-On
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="camera-container">
+                                <video id="cameraVideo" autoplay muted playsinline style="width: 100%; border-radius: 8px;"></video>
+                                <canvas id="overlayCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+                                <div id="cameraIndicator" class="camera-indicator" style="display: none;">
+                                    <i class="fas fa-mobile-alt"></i> Front Camera
+                                </div>
+                                <div id="cameraControls" class="text-center mt-2">
+                                    <button class="btn btn-primary btn-sm" id="startCameraBtn">
+                                        <i class="fas fa-play"></i> Start Camera
+                                    </button>
+                                    <button class="btn btn-warning btn-sm" id="stopCameraBtn" style="display: none;">
+                                        <i class="fas fa-stop"></i> Stop Camera
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="flipCameraBtn" style="display: none;" title="Switch between front and back camera">
+                                        <i class="fas fa-sync-alt"></i> Flip Camera
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="try-on-controls">
+                                <h6>Controls</h6>
+                                <div class="mb-3">
+                                    <label for="opacitySlider" class="form-label">Opacity</label>
+                                    <input type="range" class="form-range" id="opacitySlider" min="0" max="100" value="80">
+                                    <small class="text-muted">Adjust nail overlay opacity</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="scaleSlider" class="form-label">Scale</label>
+                                    <input type="range" class="form-range" id="scaleSlider" min="50" max="150" value="100">
+                                    <small class="text-muted">Adjust nail size</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="rotationSlider" class="form-label">Rotation</label>
+                                    <div class="d-flex align-items-center">
+                                        <input type="range" class="form-range flex-grow-1 me-2" id="rotationSlider" min="-180" max="180" value="0">
+                                        <span class="badge bg-secondary" id="rotationValue">0°</span>
+                                    </div>
+                                    <div class="d-flex gap-1 mt-2">
+                                        <button class="btn btn-outline-secondary btn-sm rotation-preset-btn" onclick="setRotation(-90)">-90°</button>
+                                        <button class="btn btn-outline-secondary btn-sm rotation-preset-btn" onclick="setRotation(-45)">-45°</button>
+                                        <button class="btn btn-outline-secondary btn-sm rotation-preset-btn" onclick="setRotation(0)">0°</button>
+                                        <button class="btn btn-outline-secondary btn-sm rotation-preset-btn" onclick="setRotation(45)">45°</button>
+                                        <button class="btn btn-outline-secondary btn-sm rotation-preset-btn" onclick="setRotation(90)">90°</button>
+                                    </div>
+                                    <small class="text-muted">Rotate nail overlay</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="nailPosition" class="form-label">Nail Position</label>
+                                    <select class="form-select" id="nailPosition">
+                                        <option value="center">Center</option>
+                                        <option value="left">Left Side</option>
+                                        <option value="right">Right Side</option>
+                                        <option value="top">Top</option>
+                                        <option value="bottom">Bottom</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <button class="btn btn-outline-secondary btn-sm" id="resetPositionBtn">
+                                        <i class="fas fa-undo"></i> Reset Position
+                                    </button>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="showHandOutline" checked>
+                                        <label class="form-check-label" for="showHandOutline">
+                                            Show Hand Outline
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="showFingerTracking" checked>
+                                        <label class="form-check-label" for="showFingerTracking">
+                                            Show Finger Tracking
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="fingerDetectionEnabled" checked>
+                                        <label class="form-check-label" for="fingerDetectionEnabled">
+                                            Enable Finger Detection
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <small>
+                                        <i class="fas fa-info-circle"></i>
+                                        Position your hand in front of the camera to see the nail design overlay. If finger tracking is unstable, try disabling it and using manual positioning.
+                                    </small>
+                                </div>
+                                <div class="alert alert-warning" id="trackingWarning" style="display: none;">
+                                    <small>
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        Finger tracking is unstable. Consider disabling finger detection for better performance.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" id="captureBtn">
+                        <i class="fas fa-camera"></i> Capture Photo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/hand-tracking.js') }}"></script>
+    <script>
+        let cameraStream = null;
+        let handTracker = null;
+        let isTryOnActive = false;
+        let currentCameraMode = 'user'; // 'user' for front camera, 'environment' for back camera
+
+        // Get the segmented image URL from the template
+        const segmentedImageUrl = "{{ results.segmented_image }}";
+
+        function startTryOn() {
+            // Check browser compatibility
+            if (!window.HandTracker) {
+                alert('Hand tracking feature is not available. Please refresh the page and try again.');
+                return;
+            }
+
+            if (!document.createElement('canvas').getContext) {
+                alert('Canvas is not supported in this browser. Please use a modern browser.');
+                return;
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('tryOnModal'));
+            modal.show();
+            
+            // Initialize hand tracker
+            initializeHandTracker();
+        }
+
+        function initializeHandTracker() {
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('overlayCanvas');
+            
+            handTracker = new HandTracker();
+            handTracker.init(video, canvas, segmentedImageUrl);
+        }
+
+        document.getElementById('startCameraBtn').addEventListener('click', startCamera);
+        document.getElementById('stopCameraBtn').addEventListener('click', stopCamera);
+        document.getElementById('flipCameraBtn').addEventListener('click', flipCamera);
+        document.getElementById('captureBtn').addEventListener('click', capturePhoto);
+        document.getElementById('resetPositionBtn').addEventListener('click', resetPosition);
+
+        // Control sliders and inputs
+        document.getElementById('opacitySlider').addEventListener('input', updateSettings);
+        document.getElementById('scaleSlider').addEventListener('input', updateSettings);
+        document.getElementById('rotationSlider').addEventListener('input', function() {
+            updateSettings();
+            updateRotationDisplay();
+        });
+        document.getElementById('nailPosition').addEventListener('change', updateSettings);
+        document.getElementById('showHandOutline').addEventListener('change', updateSettings);
+        document.getElementById('showFingerTracking').addEventListener('change', updateSettings);
+        document.getElementById('fingerDetectionEnabled').addEventListener('change', updateSettings);
+
+        function updateRotationDisplay() {
+            const rotationValue = document.getElementById('rotationSlider').value;
+            document.getElementById('rotationValue').textContent = rotationValue + '°';
+        }
+
+        function setRotation(angle) {
+            document.getElementById('rotationSlider').value = angle;
+            updateRotationDisplay();
+            updateSettings();
+        }
+
+        async function startCamera() {
+            // Check if getUserMedia is supported
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('Camera access is not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.');
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: currentCameraMode,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                });
+                
+                const video = document.getElementById('cameraVideo');
+                video.srcObject = stream;
+                cameraStream = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    startOverlay();
+                };
+                
+                video.onerror = (error) => {
+                    console.error('Video error:', error);
+                    alert('Error playing video stream. Please try again.');
+                };
+                
+                document.getElementById('startCameraBtn').style.display = 'none';
+                document.getElementById('stopCameraBtn').style.display = 'inline-block';
+                document.getElementById('flipCameraBtn').style.display = 'inline-block';
+                document.getElementById('cameraIndicator').style.display = 'block';
+                updateCameraIndicator();
+                
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                let errorMessage = 'Unable to access camera. ';
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Please allow camera permissions and try again.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No camera found. Please connect a camera and try again.';
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage += 'Camera access is not supported in this browser.';
+                } else {
+                    errorMessage += 'Please ensure camera permissions are granted and try again.';
+                }
+                
+                alert(errorMessage);
+            }
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            
+            const video = document.getElementById('cameraVideo');
+            video.srcObject = null;
+            
+            document.getElementById('startCameraBtn').style.display = 'inline-block';
+            document.getElementById('stopCameraBtn').style.display = 'none';
+            document.getElementById('flipCameraBtn').style.display = 'none';
+            document.getElementById('cameraIndicator').style.display = 'none';
+            
+            stopOverlay();
+        }
+
+        async function flipCamera() {
+            if (!cameraStream) return;
+            
+            // Stop current stream
+            cameraStream.getTracks().forEach(track => track.stop());
+            
+            // Toggle camera mode
+            currentCameraMode = currentCameraMode === 'user' ? 'environment' : 'user';
+            
+            // Update button icon to show current camera
+            const flipBtn = document.getElementById('flipCameraBtn');
+            const icon = flipBtn.querySelector('i');
+            if (currentCameraMode === 'user') {
+                icon.className = 'fas fa-mobile-alt';
+                flipBtn.title = 'Switch to back camera';
+            } else {
+                icon.className = 'fas fa-camera';
+                flipBtn.title = 'Switch to front camera';
+            }
+            
+            try {
+                // Start new stream with flipped camera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: currentCameraMode,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                });
+                
+                const video = document.getElementById('cameraVideo');
+                video.srcObject = stream;
+                cameraStream = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                };
+                
+                updateCameraIndicator();
+                
+            } catch (error) {
+                console.error('Error switching camera:', error);
+                alert('Unable to switch camera. Please try again.');
+                // Revert camera mode on error
+                currentCameraMode = currentCameraMode === 'user' ? 'environment' : 'user';
+            }
+        }
+
+        function updateCameraIndicator() {
+            const indicator = document.getElementById('cameraIndicator');
+            const icon = indicator.querySelector('i');
+            const text = indicator.querySelector('span') || indicator.childNodes[1];
+            
+            if (currentCameraMode === 'user') {
+                icon.className = 'fas fa-mobile-alt';
+                indicator.innerHTML = '<i class="fas fa-mobile-alt"></i> Front Camera';
+            } else {
+                icon.className = 'fas fa-camera';
+                indicator.innerHTML = '<i class="fas fa-camera"></i> Back Camera';
+            }
+        }
+
+        function startOverlay() {
+            if (handTracker) {
+                handTracker.start();
+                isTryOnActive = true;
+            }
+        }
+
+        function stopOverlay() {
+            if (handTracker) {
+                handTracker.stop();
+            }
+            isTryOnActive = false;
+        }
+
+        function updateSettings() {
+            if (handTracker) {
+                const opacity = document.getElementById('opacitySlider').value / 100;
+                const scale = document.getElementById('scaleSlider').value / 100;
+                const rotation = document.getElementById('rotationSlider').value;
+                const position = document.getElementById('nailPosition').value;
+                const showOutline = document.getElementById('showHandOutline').checked;
+                const showFingerTracking = document.getElementById('showFingerTracking').checked;
+                const fingerDetectionEnabled = document.getElementById('fingerDetectionEnabled').checked;
+                
+                handTracker.updateSettings({
+                    opacity: opacity,
+                    scale: scale,
+                    rotation: rotation,
+                    position: position,
+                    showHandOutline: showOutline,
+                    showFingerTracking: showFingerTracking,
+                    fingerDetectionEnabled: fingerDetectionEnabled
+                });
+            }
+        }
+
+        function resetPosition() {
+            document.getElementById('opacitySlider').value = 80;
+            document.getElementById('scaleSlider').value = 100;
+            document.getElementById('rotationSlider').value = 0;
+            updateRotationDisplay();
+            updateSettings();
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('overlayCanvas');
+            
+            // Create a new canvas for the final image
+            const finalCanvas = document.createElement('canvas');
+            const finalCtx = finalCanvas.getContext('2d');
+            
+            finalCanvas.width = video.videoWidth || video.clientWidth;
+            finalCanvas.height = video.videoHeight || video.clientHeight;
+            
+            // Draw video frame
+            finalCtx.drawImage(video, 0, 0, finalCanvas.width, finalCanvas.height);
+            
+            // Draw overlay
+            finalCtx.drawImage(canvas, 0, 0);
+            
+            // Convert to blob and download
+            finalCanvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'nail-tryon-capture.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+
+        // Clean up when modal is closed
+        document.getElementById('tryOnModal').addEventListener('hidden.bs.modal', function() {
+            stopCamera();
+        });
+    </script>
+
+</body>
+</html>

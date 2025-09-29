@@ -1,0 +1,19 @@
+[project]
+name = "nail-detection-flask"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "boto3>=1.40.33",
+    "flask>=3.1.2",
+    "flask-cors>=6.0.1",
+    "opencv-python>=4.12.0.88",
+    "pillow>=11.3.0",
+    "scipy>=1.16.2",
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
+    "trimesh>=4.8.2",
+    "ultralytics>=8.3.201",
+    "uvicorn>=0.35.0",
+]
